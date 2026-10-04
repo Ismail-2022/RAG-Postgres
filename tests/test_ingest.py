@@ -18,7 +18,7 @@ import httpx
 import pytest
 import yaml
 
-import fetch_postgres_docs as fpd
+from pglens.ingest import fetch as fpd
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE_FILES = sorted(FIXTURES.glob("*.html"))
@@ -180,10 +180,18 @@ def _read_frontmatter(path: Path) -> dict[str, object]:
 
 
 @pytest.fixture
-def workdir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Run in an empty directory so run() writes under tmp_path, not the repo."""
-    monkeypatch.chdir(tmp_path)
+def workdir(tmp_path: Path) -> Path:
+    """A temporary project folder, so run() never writes to the real data/."""
     return tmp_path
+
+
+def _run(workdir: Path) -> None:
+    """Run the ingestion against the temporary folder's sources, raw and processed dirs."""
+    fpd.run(
+        sources=workdir / "sources.yaml",
+        raw_dir=workdir / "raw",
+        processed_dir=workdir / "processed",
+    )
 
 
 @pytest.mark.parametrize("fixture", FIXTURE_FILES, ids=lambda p: p.stem)
@@ -195,16 +203,16 @@ def test_run_writes_processed_file_with_frontmatter(
     monkeypatch.setattr(fpd, "fetch_html", lambda url: html)
     _write_sources(workdir / "sources.yaml", [{"slug": slug, "topic": "test-topic"}])
 
-    fpd.run()
+    _run(workdir)
 
-    meta = _read_frontmatter(workdir / "data" / "processed" / f"{slug}.md")
+    meta = _read_frontmatter(workdir / "processed" / f"{slug}.md")
     assert meta["slug"] == slug
     assert meta["topic"] == "test-topic"
     assert meta["source_url"] == f"{BASE_URL}/{slug}.html"
     assert meta["docs_version"] == "17"
     assert meta["title"]
     assert len(str(meta["content_hash"])) == 12
-    assert (workdir / "data" / "raw" / f"{slug}.html").read_text() == html
+    assert (workdir / "raw" / f"{slug}.html").read_text() == html
 
 
 def test_run_escapes_quotes_in_title(
@@ -217,9 +225,9 @@ def test_run_escapes_quotes_in_title(
         workdir / "sources.yaml", [{"slug": "tricky", "topic": "maintenance"}]
     )
 
-    fpd.run()
+    _run(workdir)
 
-    meta = _read_frontmatter(workdir / "data" / "processed" / "tricky.md")
+    meta = _read_frontmatter(workdir / "processed" / "tricky.md")
     assert meta["title"] == tricky
 
 
@@ -244,9 +252,9 @@ def test_failed_page_is_skipped_and_others_still_run(
         ],
     )
 
-    fpd.run()
+    _run(workdir)
 
-    processed = workdir / "data" / "processed"
+    processed = workdir / "processed"
     assert (processed / "present-page.md").exists()
     assert not (processed / "missing-page.md").exists()
-    assert not (workdir / "data" / "raw" / "missing-page.html").exists()
+    assert not (workdir / "raw" / "missing-page.html").exists()

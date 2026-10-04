@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from fetch_postgres_docs import extract_main, to_markdown
 from pglens.chunking.chunker import chunk_document, split_frontmatter
+from pglens.ingest.fetch import extract_main, to_markdown
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE_FILES = sorted(FIXTURES.glob("*.html"))

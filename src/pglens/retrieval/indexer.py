@@ -4,9 +4,9 @@ Uses the local (embedded) Qdrant client, which stores data in a folder and
 needs no server. The same code works against a Qdrant server later by
 changing the client constructor.
 
-Run from the project root to build the index from data/processed/:
+To build the index from data/processed/:
 
-    .venv/bin/python -m pglens.retrieval.indexer
+    python -m pglens.retrieval.indexer
 """
 
 from __future__ import annotations
@@ -19,11 +19,10 @@ from typing import Any, Protocol
 from qdrant_client import QdrantClient, models
 
 from pglens.chunking import Chunk, chunk_processed_dir
+from pglens.config import INDEX_DIR, PROCESSED_DIR
 
 COLLECTION = "pglens_docs"
 EMBED_MODEL = "BAAI/bge-small-en-v1.5"  # 384 dimensions, small enough for a laptop CPU
-INDEX_PATH = Path("data/qdrant")
-PROCESSED_DIR = Path("data/processed")
 
 # Fixed namespace so the same chunk always maps to the same Qdrant point id
 _POINT_NAMESPACE = uuid.UUID("6f1c7a0e-2b1d-4c51-9a77-3d0f2e8b5a10")
@@ -51,7 +50,7 @@ class FastEmbedder:
         return next(iter(self._model.query_embed(text))).tolist()
 
 
-def open_index(path: Path = INDEX_PATH) -> QdrantClient:
+def open_index(path: Path = INDEX_DIR) -> QdrantClient:
     path.mkdir(parents=True, exist_ok=True)
     return QdrantClient(path=str(path))
 
@@ -127,7 +126,7 @@ def main() -> None:
     embedder = FastEmbedder()
     client = open_index()
     count = index_chunks(client, chunks, embedder)
-    print(f"indexed {count} chunks into {INDEX_PATH}/ (collection '{COLLECTION}')")
+    print(f"indexed {count} chunks into {INDEX_DIR} (collection '{COLLECTION}')")
 
 
 if __name__ == "__main__":

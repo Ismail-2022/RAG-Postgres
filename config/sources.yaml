@@ -1,5 +1,6 @@
-# Curated GovLens... err, PGLens source list.
+# Curated PostgreSQL documentation pages for PGLens.
 # Pin an exact version (never "current") so re-runs are reproducible.
+# Edit this list to add or remove corpus pages, then re-run the ingestion.
 version: "17"
 base_url: "https://www.postgresql.org/docs/17"
 license: "PostgreSQL License (permissive, MIT-style) — see postgresql.org/about/licence"

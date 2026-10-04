@@ -1,5 +1,9 @@
 # PGLens — Project Brief & Handoff
 
+> Historical planning document. Decisions here still hold, but file paths
+> and commands reflect the original layout. See [../README.md](../README.md)
+> for the current structure.
+
 A production-grade RAG portfolio project: a DBA/DevOps copilot that answers
 questions about PostgreSQL performance, indexing, and administration, with
 citations back to the official docs. Built to demonstrate MLOps and CI/CD

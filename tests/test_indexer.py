@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 from qdrant_client import QdrantClient
 
-from fetch_postgres_docs import extract_main, to_markdown
 from pglens.chunking import Chunk, chunk_document
+from pglens.ingest.fetch import extract_main, to_markdown
 from pglens.retrieval.indexer import index_chunks, search
 
 FIXTURES = Path(__file__).parent / "fixtures"

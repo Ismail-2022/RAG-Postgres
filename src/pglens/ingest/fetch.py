@@ -1,7 +1,6 @@
 """Fetch curated PostgreSQL doc pages, cache raw HTML, convert to clean markdown.
 
-    uv add httpx beautifulsoup4 pyyaml markdownify tenacity
-    python fetch_postgres_docs.py
+    python -m pglens.ingest.fetch
 
 Raw HTML -> data/raw/<slug>.html   (immutable, DVC-tracked, your ground truth)
 Clean MD -> data/processed/<slug>.md (frontmatter + body, this is what gets chunked)
@@ -21,8 +20,8 @@ from bs4 import BeautifulSoup
 from markdownify import markdownify
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-RAW_DIR = Path("data/raw")
-PROCESSED_DIR = Path("data/processed")
+from pglens.config import PROCESSED_DIR, RAW_DIR, SOURCES_FILE
+
 MIN_INTERVAL = 0.5  # be polite, this is a shared community resource
 
 client = httpx.Client(
@@ -78,10 +77,14 @@ def to_markdown(main_html: str) -> str:
     ).strip()
 
 
-def run() -> None:
-    cfg = yaml.safe_load(Path("sources.yaml").read_text())
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
-    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+def run(
+    sources: Path = SOURCES_FILE,
+    raw_dir: Path = RAW_DIR,
+    processed_dir: Path = PROCESSED_DIR,
+) -> None:
+    cfg = yaml.safe_load(sources.read_text())
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    processed_dir.mkdir(parents=True, exist_ok=True)
     fetched_at = datetime.now(timezone.utc).isoformat()
 
     for page in cfg["pages"]:
@@ -93,7 +96,7 @@ def run() -> None:
             print(f"FAILED {slug}: {e.response.status_code} — check slug is current")
             continue
 
-        (RAW_DIR / f"{slug}.html").write_text(html)
+        (raw_dir / f"{slug}.html").write_text(html)
         title, main_html = extract_main(html, url)
         body = to_markdown(main_html)
         content_hash = hashlib.sha256(body.encode()).hexdigest()[:12]
@@ -114,9 +117,13 @@ def run() -> None:
             + yaml.safe_dump(meta, sort_keys=False, allow_unicode=True, width=4096)
             + "---\n\n"
         )
-        (PROCESSED_DIR / f"{slug}.md").write_text(frontmatter + body)
+        (processed_dir / f"{slug}.md").write_text(frontmatter + body)
         print(f"ok  {slug}  ({len(body)} chars)")
 
 
-if __name__ == "__main__":
+def main() -> None:
     run()
+
+
+if __name__ == "__main__":
+    main()
