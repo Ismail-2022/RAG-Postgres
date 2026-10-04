@@ -9,10 +9,6 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Generated corpus (DVC tracks these once the pipeline is versioned)
-data/raw/
-data/processed/
-
 # Local services and secrets
 .env
 mlruns/

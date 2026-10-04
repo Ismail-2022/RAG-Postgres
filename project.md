@@ -21,7 +21,7 @@ at zero cost.
 
 ## Scope and decisions
 
-- **Corpus**: about 20 hand-curated PostgreSQL 17 documentation pages, listed
+- **Corpus**: 19 hand-curated PostgreSQL 17 documentation pages, listed
   in [sources.yaml](sources.yaml). Editing that file is how pages are added or
   removed.
 - **Version pinning**: always `docs/17`, never `docs/current`, so re-runs are
@@ -81,10 +81,13 @@ pglens/
 
 - [x] Project brief and corpus list
 - [x] Ingestion script drafted
-- [ ] Repo scaffold: `pyproject.toml` (uv), ruff, mypy, pre-commit
-- [ ] Verify all `sources.yaml` slugs resolve on PostgreSQL 17
-- [ ] Run ingestion and spot-check markdown output
-- [ ] Version `data/` with DVC
+- [x] Repo created (local git, `main` branch)
+- [x] Verify all `sources.yaml` slugs resolve on PostgreSQL 17 (19 of 19)
+- [x] Run ingestion and spot-check markdown output (links absolute, permalinks and non-breaking spaces removed)
+- [x] Offline unit tests with pytest (`tests/`, saved page fixtures)
+- [x] Version `data/` with DVC (local remote at `~/dvc-store/pglens`)
+- [ ] Repo scaffold: `pyproject.toml` (pip), ruff, pre-commit
+- [ ] Type checking with mypy (add when wanted)
 - [ ] Chunking, Qdrant indexing, LangGraph pipeline, `/ask` endpoint
 - [ ] Evaluation harness and golden set
 - [ ] Embedder fine-tuning with MLflow tracking
@@ -94,12 +97,22 @@ pglens/
 ## Running ingestion
 
 ```bash
-uv add httpx beautifulsoup4 pyyaml markdownify tenacity
-python fetch_postgres_docs.py   # run from the project root
+python -m venv .venv
+.venv/bin/pip install -e .                # runtime dependencies from pyproject.toml
+.venv/bin/python fetch_postgres_docs.py   # run from the project root
 ```
 
 Output: `data/raw/<slug>.html` (untouched HTML) and
 `data/processed/<slug>.md` (markdown with frontmatter).
+
+## Running tests
+
+```bash
+.venv/bin/pip install -e ".[dev]"   # adds pytest
+.venv/bin/pytest
+```
+
+Tests run offline. Saved pages in `tests/fixtures/` are used as real-world input.
 
 ## Open questions
 
