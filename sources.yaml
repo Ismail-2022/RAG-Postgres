@@ -1,0 +1,56 @@
+# Curated GovLens... err, PGLens source list.
+# Pin an exact version (never "current") so re-runs are reproducible.
+version: "17"
+base_url: "https://www.postgresql.org/docs/17"
+license: "PostgreSQL License (permissive, MIT-style) — see postgresql.org/about/licence"
+
+pages:
+  # Indexing
+  - slug: indexes-intro
+    topic: indexing
+  - slug: indexes-types
+    topic: indexing
+  - slug: indexes-multicolumn
+    topic: indexing
+  - slug: indexes-partial
+    topic: indexing
+  - slug: indexes-index-only-scans
+    topic: indexing
+
+  # Query planning
+  - slug: planner-stats
+    topic: query-planning
+  - slug: explicit-joins
+    topic: query-planning
+  - slug: using-explain
+    topic: query-planning
+
+  # Performance tuning
+  - slug: runtime-config-resource
+    topic: performance-tuning
+  - slug: runtime-config-query
+    topic: performance-tuning
+  - slug: populate
+    topic: performance-tuning
+
+  # VACUUM & maintenance
+  - slug: routine-vacuuming
+    topic: maintenance
+  - slug: routine-reindex
+    topic: maintenance
+  - slug: sql-vacuum
+    topic: maintenance
+
+  # Monitoring
+  - slug: monitoring-stats
+    topic: monitoring
+  - slug: monitoring-locks
+    topic: monitoring
+
+  # Concurrency
+  - slug: mvcc-intro
+    topic: concurrency
+  - slug: explicit-locking
+    topic: concurrency
+  - slug: transaction-iso
+    topic: concurrency

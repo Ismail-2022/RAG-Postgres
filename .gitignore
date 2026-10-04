@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.python-version
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated corpus (DVC tracks these once the pipeline is versioned)
+data/raw/
+data/processed/
+
+# Local services and secrets
+.env
+mlruns/
+.dvc/tmp/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
