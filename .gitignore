@@ -9,6 +9,9 @@ __pycache__/
 .coverage
 htmlcov/
 
+# Vector index: rebuilt from data/processed/, so not versioned
+data/qdrant/
+
 # Local services and secrets
 .env
 mlruns/

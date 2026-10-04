@@ -13,11 +13,16 @@ dependencies = [
     "pyyaml",
     "markdownify",
     "tenacity",
+    "qdrant-client",
+    "fastembed",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest"]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = [".", "src"]

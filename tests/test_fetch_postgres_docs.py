@@ -207,11 +207,15 @@ def test_run_writes_processed_file_with_frontmatter(
     assert (workdir / "data" / "raw" / f"{slug}.html").read_text() == html
 
 
-def test_run_escapes_quotes_in_title(workdir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_escapes_quotes_in_title(
+    workdir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     tricky = 'Tuning: "VACUUM" and # comments'
     html = _page("<p>body</p>", title=tricky)
     monkeypatch.setattr(fpd, "fetch_html", lambda url: html)
-    _write_sources(workdir / "sources.yaml", [{"slug": "tricky", "topic": "maintenance"}])
+    _write_sources(
+        workdir / "sources.yaml", [{"slug": "tricky", "topic": "maintenance"}]
+    )
 
     fpd.run()
 
