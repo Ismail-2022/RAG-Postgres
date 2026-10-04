@@ -6,12 +6,14 @@
 Raw HTML -> data/raw/<slug>.html   (immutable, DVC-tracked, your ground truth)
 Clean MD -> data/processed/<slug>.md (frontmatter + body, this is what gets chunked)
 """
+
 from __future__ import annotations
 
 import hashlib
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urljoin
 
 import httpx
 import yaml
@@ -24,7 +26,8 @@ PROCESSED_DIR = Path("data/processed")
 MIN_INTERVAL = 0.5  # be polite, this is a shared community resource
 
 client = httpx.Client(
-    timeout=30, follow_redirects=True,
+    timeout=30,
+    follow_redirects=True,
     headers={"User-Agent": "pglens-portfolio-project (github.com/<you>/pglens)"},
 )
 _last_call = 0.0
@@ -42,23 +45,36 @@ def fetch_html(url: str) -> str:
     return r.text
 
 
-def extract_main(html: str) -> tuple[str, str]:
-    """Return (title, main_content_html), stripping nav/header/footer chrome."""
+def extract_main(html: str, page_url: str) -> tuple[str, str]:
+    """Return (title, main_content_html), stripping nav chrome and heading permalinks.
+
+    Every href is resolved against page_url so links still work once the
+    markdown is detached from the docs site (in-page #anchors become links
+    to the section on postgresql.org).
+    """
     soup = BeautifulSoup(html, "html.parser")
+    for permalink in soup.select("a.id_link"):
+        permalink.decompose()
     title = soup.find("h1") or soup.find("h2")
-    title_text = title.get_text(strip=True) if title else "Untitled"
+    # str.split() also splits on the &nbsp; the docs put after section numbers
+    title_text = " ".join(title.get_text().split()) if title else "Untitled"
     main = soup.find(id="docContent") or soup.find("div", class_="sect1") or soup.body
     for junk in main.select("div.navheader, div.navfooter, a.navheader"):
         junk.decompose()
+    for a in main.select("a[href]"):
+        a["href"] = urljoin(page_url, a["href"])
     return title_text, str(main)
 
 
 def to_markdown(main_html: str) -> str:
-    md = markdownify(main_html, heading_style="ATX")
-    # collapse >2 blank lines left over from stripped nav elements
+    # the docs use &nbsp; after section numbers; plain spaces keep citations greppable
+    md = markdownify(main_html, heading_style="ATX").replace("\xa0", " ")
+    # collapse runs of blank lines left over from stripped nav elements
+    lines = md.splitlines()
     return "\n".join(
-        line for i, line in enumerate(md.splitlines())
-        if line.strip() or (i > 0 and md.splitlines()[i - 1].strip())
+        line
+        for i, line in enumerate(lines)
+        if line.strip() or (i > 0 and lines[i - 1].strip())
     ).strip()
 
 
@@ -78,21 +94,25 @@ def run() -> None:
             continue
 
         (RAW_DIR / f"{slug}.html").write_text(html)
-        title, main_html = extract_main(html)
+        title, main_html = extract_main(html, url)
         body = to_markdown(main_html)
         content_hash = hashlib.sha256(body.encode()).hexdigest()[:12]
 
+        meta = {
+            "title": title,
+            "slug": slug,
+            "topic": topic,
+            "source_url": url,
+            "docs_version": cfg["version"],
+            "license": cfg["license"],
+            "fetched_at": fetched_at,
+            "content_hash": content_hash,
+        }
+        # safe_dump escapes quotes and other characters a title may contain
         frontmatter = (
             "---\n"
-            f"title: \"{title}\"\n"
-            f"slug: {slug}\n"
-            f"topic: {topic}\n"
-            f"source_url: {url}\n"
-            f"docs_version: \"{cfg['version']}\"\n"
-            f"license: \"{cfg['license']}\"\n"
-            f"fetched_at: {fetched_at}\n"
-            f"content_hash: {content_hash}\n"
-            "---\n\n"
+            + yaml.safe_dump(meta, sort_keys=False, allow_unicode=True, width=4096)
+            + "---\n\n"
         )
         (PROCESSED_DIR / f"{slug}.md").write_text(frontmatter + body)
         print(f"ok  {slug}  ({len(body)} chars)")
