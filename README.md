@@ -68,7 +68,11 @@ Rag_PostGres/
 │   ├── config.py                  # all filesystem paths, anchored to the project root
 │   ├── ingest/fetch.py            # fetch, cache, and convert doc pages
 │   ├── chunking/chunker.py        # heading-aware chunking of processed markdown
-│   └── retrieval/indexer.py       # Qdrant indexing and search
+│   ├── retrieval/indexer.py       # Qdrant indexing and search
+│   ├── graph/pipeline.py          # retrieve -> generate -> check citations
+│   ├── llm/ollama.py              # local Ollama model client
+│   ├── eval/                      # retrieval and answer-quality scoring
+│   └── api/                       # web page and /ask endpoint
 └── tests/
     ├── fixtures/                  # saved real pages used as test input
     ├── test_ingest.py
@@ -106,7 +110,10 @@ location of your shell does not matter.
 # 4. Score answer quality with the local judge (refusals and claim support)
 .venv/bin/python -m pglens.eval.answer_eval
 
-# 5. Score retrieval against a golden set (default: data/eval/golden_set.jsonl)
+# 5. Start the web page (then open http://127.0.0.1:8000)
+.venv/bin/python -m pglens.api
+
+# 6. Score retrieval against a golden set (default: data/eval/golden_set.jsonl)
 .venv/bin/python -m pglens.eval.retrieval_eval [golden_set_file] [dense|hybrid]
 ```
 
@@ -146,9 +153,10 @@ live in the DVC cache and the configured remote.
 - [x] LangGraph pipeline with citation checks (local Ollama, `qwen3.5`)
 - [ ] Reranking between retrieve and generate
 - [x] Answer-quality evaluation with a local judge: refusal accuracy 1.000, citation coverage 0.703, faithfulness on cited claims 0.889 (judge not yet validated by hand)
-- [ ] Require every claim to carry a citation (coverage is the weakest number)
-- [ ] Hand-check a sample of judge verdicts to calibrate the judge
-- [ ] `/ask` endpoint
+- [x] Citation instruction tightened in the prompt: coverage 0.703 -> 0.959, faithfulness on cited claims 0.889 -> 0.915 (16 questions)
+- [ ] Enforce citations in code (currently only the prompt asks for them)
+- [ ] Judge calibration: 2 of 4 flagged claims spot-checked so far; one overstatement confirmed, one possibly a judge error
+- [x] `/ask` endpoint and question page (FastAPI, served on 127.0.0.1:8000)
 - [ ] Evaluation harness and golden set
 - [ ] Embedder fine-tuning with MLflow tracking
 - [ ] CI/CD workflows and Hugging Face deployment

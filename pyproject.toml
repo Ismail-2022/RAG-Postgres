@@ -16,6 +16,8 @@ dependencies = [
     "qdrant-client",
     "fastembed",
     "langgraph",
+    "fastapi",
+    "uvicorn",
 ]
 
 [project.optional-dependencies]
@@ -23,6 +25,9 @@ dev = ["pytest"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"pglens.api" = ["static/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

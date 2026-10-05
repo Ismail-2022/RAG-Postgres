@@ -33,7 +33,9 @@ CITATION = re.compile(r"\[(\d+)\]")
 
 SYSTEM_RULES = (
     "You answer questions about PostgreSQL using only the numbered sources below.\n"
-    "Cite the sources you use inline, like [1] or [2][3].\n"
+    "Every sentence must end with a citation to the source it comes from, like [1] "
+    "or [2][3]. Do not write a sentence that has no citation.\n"
+    "Do not write lead-in lines that end in a colon.\n"
     f"If the sources do not answer the question, reply exactly: {REFUSAL}\n"
     "Do not use knowledge from outside the sources."
 )

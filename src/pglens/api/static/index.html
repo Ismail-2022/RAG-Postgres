@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PGLens: PostgreSQL docs assistant</title>
+  <style>
+    :root {
+      --bg: #fafaf8;
+      --panel: #ffffff;
+      --text: #1d1d1b;
+      --muted: #6b6b66;
+      --border: #e2e2dc;
+      --accent: #2f5d8a;
+      --refuse: #8a5a2f;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #161614;
+        --panel: #1f1f1c;
+        --text: #ecece6;
+        --muted: #9a9a92;
+        --border: #3a3a35;
+        --accent: #7aa6d6;
+        --refuse: #d6a46f;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #161614;
+      --panel: #1f1f1c;
+      --text: #ecece6;
+      --muted: #9a9a92;
+      --border: #3a3a35;
+      --accent: #7aa6d6;
+      --refuse: #d6a46f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 40px 16px 64px;
+    }
+    h1 { font-size: 1.5rem; margin: 0 0 4px; }
+    .subtitle { color: var(--muted); margin: 0 0 24px; }
+    form { display: flex; gap: 8px; }
+    input[type="text"] {
+      flex: 1;
+      min-width: 0;
+      padding: 12px 14px;
+      font: inherit;
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    button {
+      padding: 12px 18px;
+      font: inherit;
+      color: #fff;
+      background: var(--accent);
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.6; cursor: default; }
+    #result { margin-top: 24px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .answer { white-space: pre-wrap; }
+    .answer.refused { color: var(--refuse); }
+    .sources { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .sources h2 { font-size: 0.95rem; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
+    .sources ol { margin: 0; padding-left: 20px; }
+    .sources li { margin-bottom: 6px; }
+    .sources a { color: var(--accent); }
+    .status { color: var(--muted); }
+    .error { color: var(--refuse); }
+    .note {
+      margin-top: 32px;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>PostgreSQL docs assistant</h1>
+    <p class="subtitle">Answers come from the official PostgreSQL 17 documentation, with citations.</p>
+
+    <form id="ask-form">
+      <input type="text" id="question" name="question" maxlength="500" required
+             placeholder="e.g. How do I find which sessions are waiting on a lock?"
+             aria-label="Your question">
+      <button type="submit" id="submit">Ask</button>
+    </form>
+
+    <div id="result" aria-live="polite"></div>
+
+    <p class="note">
+      Each answer is checked against its cited sources before it is shown.
+      If the documentation does not cover a question, the assistant says so.
+    </p>
+  </main>
+
+  <script>
+    const form = document.getElementById("ask-form");
+    const input = document.getElementById("question");
+    const button = document.getElementById("submit");
+    const result = document.getElementById("result");
+
+    function setStatus(text, className) {
+      result.replaceChildren();
+      const p = document.createElement("p");
+      p.className = className || "status";
+      p.textContent = text;
+      result.appendChild(p);
+    }
+
+    function renderAnswer(data) {
+      result.replaceChildren();
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const answer = document.createElement("div");
+      answer.className = data.refused ? "answer refused" : "answer";
+      answer.textContent = data.answer;
+      card.appendChild(answer);
+
+      if (data.sources.length > 0) {
+        const section = document.createElement("div");
+        section.className = "sources";
+        const heading = document.createElement("h2");
+        heading.textContent = "Sources";
+        section.appendChild(heading);
+
+        const list = document.createElement("ol");
+        data.sources.forEach((source) => {
+          const item = document.createElement("li");
+          const link = document.createElement("a");
+          link.href = source.source_url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = source.heading_path.join(" > ") || source.title;
+          item.appendChild(link);
+          list.appendChild(item);
+        });
+        section.appendChild(list);
+        card.appendChild(section);
+      }
+
+      result.appendChild(card);
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const question = input.value.trim();
+      if (question.length < 3) {
+        setStatus("Please type a question of at least three characters.", "error");
+        return;
+      }
+
+      button.disabled = true;
+      setStatus("Searching the documentation...");
+      try {
+        const response = await fetch("/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          setStatus(data.detail || "Something went wrong. Please try again.", "error");
+          return;
+        }
+        renderAnswer(data);
+      } catch (error) {
+        setStatus("Could not reach the server. Is it running?", "error");
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
