@@ -1,0 +1,23 @@
+{"id": "q01", "question": "How do I find which sessions are waiting on a lock?", "relevant": [{"slug": "monitoring-locks", "heading": "Viewing Locks"}]}
+{"id": "q02", "question": "Which system view shows the locks currently held or awaited?", "relevant": [{"slug": "monitoring-locks", "heading": "Viewing Locks"}]}
+{"id": "q03", "question": "When does autovacuum run?", "relevant": [{"slug": "routine-vacuuming", "heading": "The Autovacuum Daemon"}]}
+{"id": "q04", "question": "What is transaction ID wraparound and how is it prevented?", "relevant": [{"slug": "routine-vacuuming", "heading": "Wraparound"}]}
+{"id": "q05", "question": "What does VACUUM FULL do to a table?", "relevant": [{"slug": "sql-vacuum", "heading": "Description"}]}
+{"id": "q06", "question": "How do I see the actual run time of each step of a query?", "relevant": [{"slug": "using-explain", "heading": "EXPLAIN ANALYZE"}]}
+{"id": "q07", "question": "What is a GIN index good for?", "relevant": [{"slug": "indexes-types", "heading": "GIN"}]}
+{"id": "q08", "question": "When should I create a partial index?", "relevant": [{"slug": "indexes-partial", "heading": "Partial Indexes"}]}
+{"id": "q09", "question": "What is an index-only scan?", "relevant": [{"slug": "indexes-index-only-scans", "heading": "Index-Only Scans"}]}
+{"id": "q10", "question": "Does the column order matter in a multicolumn index?", "relevant": [{"slug": "indexes-multicolumn", "heading": "Multicolumn Indexes"}]}
+{"id": "q11", "question": "Which isolation level prevents phantom reads?", "relevant": [{"slug": "transaction-iso", "heading": "Serializable"}, {"slug": "transaction-iso", "heading": "Repeatable Read"}]}
+{"id": "q12", "question": "What are advisory locks?", "relevant": [{"slug": "explicit-locking", "heading": "Advisory Locks"}]}
+{"id": "q13", "question": "What is a deadlock and how does PostgreSQL handle it?", "relevant": [{"slug": "explicit-locking", "heading": "Deadlocks"}]}
+{"id": "q14", "question": "What is the fastest way to bulk load rows into a table?", "relevant": [{"slug": "populate", "heading": "COPY"}]}
+{"id": "q15", "question": "How can the planner learn about correlated columns?", "relevant": [{"slug": "planner-stats", "heading": "Extended Statistics"}]}
+{"id": "q16", "question": "What does shared_buffers control?", "relevant": [{"slug": "runtime-config-resource", "heading": "Memory"}]}
+{"id": "q17", "question": "How do I stop vacuum from slowing down normal queries?", "relevant": [{"slug": "runtime-config-resource", "heading": "Cost-based Vacuum Delay"}]}
+{"id": "q18", "question": "Which settings enable or disable the planner's join methods?", "relevant": [{"slug": "runtime-config-query", "heading": "Planner Method Configuration"}]}
+{"id": "q19", "question": "When should I rebuild an index with REINDEX?", "relevant": [{"slug": "routine-reindex", "heading": "Routine Reindexing"}]}
+{"id": "q20", "question": "What is MVCC?", "relevant": [{"slug": "mvcc-intro", "heading": "Introduction"}]}
+{"id": "q21", "question": "How do I check how often my tables and indexes are being used?", "relevant": [{"slug": "monitoring-stats", "heading": "Viewing Statistics"}]}
+{"id": "q22", "question": "How can I check whether replication is keeping up?", "relevant": [{"slug": "monitoring-stats", "heading": "pg_stat_replication"}]}
+{"id": "q23", "question": "Does the order of tables in a join affect the plan?", "relevant": [{"slug": "explicit-joins"}]}

@@ -99,6 +99,9 @@ location of your shell does not matter.
 
 # 2. Build the vector index from data/processed
 .venv/bin/python -m pglens.retrieval.indexer
+
+# 3. Score retrieval against the golden set (data/eval/golden_set.jsonl)
+.venv/bin/python -m pglens.eval.retrieval_eval
 ```
 
 Step 1 contacts postgresql.org, so run it only when the corpus needs
@@ -131,7 +134,9 @@ live in the DVC cache and the configured remote.
 - [x] Data versioned with DVC (local remote at `~/dvc-store/pglens`)
 - [ ] Pre-commit hooks (ruff, tests)
 - [ ] Type checking with mypy (add when wanted)
-- [ ] Retrieval evaluation: measure quality before tuning
+- [x] Retrieval evaluation baseline: 23 questions, recall@5 1.000, MRR 0.928
+  (questions were written from the section headings, so this is an optimistic
+  upper bound; harder paraphrased questions are next)
 - [ ] LangGraph pipeline with citations, `/ask` endpoint
 - [ ] Evaluation harness and golden set
 - [ ] Embedder fine-tuning with MLflow tracking
