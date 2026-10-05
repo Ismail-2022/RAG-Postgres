@@ -20,6 +20,9 @@ class ScriptedLLM:
     def complete(self, prompt: str) -> str:
         return self.reply
 
+    def stream(self, prompt: str):
+        yield self.reply
+
 
 @pytest.fixture
 def index() -> QdrantClient:
@@ -106,5 +109,48 @@ def test_home_page_is_served(index: QdrantClient) -> None:
     response = _client(index, "unused").get("/")
 
     assert response.status_code == 200
-    assert "PostgreSQL docs assistant" in response.text
-    assert 'id="ask-form"' in response.text
+    assert "PGLens" in response.text
+    assert 'id="composer"' in response.text
+    assert 'id="question"' in response.text
+
+
+def test_stream_sends_retrieved_tokens_then_final(index: QdrantClient) -> None:
+    client = _client(index, "Query pg_locks to see waiting sessions [1].")
+
+    with client.stream(
+        "POST", "/ask/stream", json={"question": "blocked sessions"}
+    ) as response:
+        body = "".join(response.iter_text())
+
+    assert response.status_code == 200
+    assert "event: retrieved" in body
+    assert "event: token" in body
+    assert (
+        body.index("event: retrieved")
+        < body.index("event: token")
+        < body.index("event: final")
+    )
+    final_block = body.split("event: final\ndata: ")[1].split("\n\n")[0]
+    assert '"refused": false' in final_block
+    assert "[1]" in final_block
+
+
+def test_stream_refuses_when_the_model_declines(index: QdrantClient) -> None:
+    client = _client(index, REFUSAL)
+
+    with client.stream(
+        "POST", "/ask/stream", json={"question": "capital of France"}
+    ) as response:
+        body = "".join(response.iter_text())
+
+    assert '"refused": true' in body
+
+
+def test_stream_returns_503_when_index_is_missing() -> None:
+    client = _client(QdrantClient(":memory:"), "unused")
+
+    response = client.post(
+        "/ask/stream", json={"question": "how do I see blocked sessions"}
+    )
+
+    assert response.status_code == 503

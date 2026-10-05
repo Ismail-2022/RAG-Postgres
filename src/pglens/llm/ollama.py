@@ -6,7 +6,10 @@ Start the server with the Ollama app or `ollama serve`.
 
 from __future__ import annotations
 
+import json
 import os
+from collections.abc import Iterator
+from typing import Any
 
 import httpx
 
@@ -30,16 +33,33 @@ class OllamaLLM:
         self.context = context
         self._client = httpx.Client(base_url=host, timeout=timeout, transport=transport)
 
+    def _payload(self, prompt: str, stream: bool) -> dict[str, Any]:
+        return {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": stream,
+            "think": False,  # answer directly; no hidden reasoning tokens
+            "options": {"temperature": 0, "num_ctx": self.context},
+        }
+
     def complete(self, prompt: str) -> str:
         response = self._client.post(
-            "/api/generate",
-            json={
-                "model": self.model,
-                "prompt": prompt,
-                "stream": False,
-                "think": False,  # answer directly; no hidden reasoning tokens
-                "options": {"temperature": 0, "num_ctx": self.context},
-            },
+            "/api/generate", json=self._payload(prompt, stream=False)
         )
         response.raise_for_status()
         return str(response.json()["response"]).strip()
+
+    def stream(self, prompt: str) -> Iterator[str]:
+        """Yield the model's text as Ollama produces it."""
+        with self._client.stream(
+            "POST", "/api/generate", json=self._payload(prompt, stream=True)
+        ) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                part = json.loads(line)
+                if part.get("response"):
+                    yield str(part["response"])
+                if part.get("done"):
+                    break

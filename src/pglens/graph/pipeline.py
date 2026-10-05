@@ -5,8 +5,11 @@
 - retrieve: hybrid search over the indexed chunks.
 - generate: the LLM answers from the numbered sources and cites them as [n].
 - cite_check: every citation must point at a source that was actually given.
-  Anything else is refused rather than shown, so a made-up citation never
-  reaches the user.
+  Anything else is refused, so a made-up citation never stands as an answer.
+
+`stream_answer` runs the same steps, but yields the model's text as it is
+written. The text is only final once `cite_check` passes, so the caller must
+treat streamed text as a draft until the final event arrives.
 
 A reranking step will go between retrieve and generate once a reranker is chosen.
 
@@ -17,6 +20,7 @@ from __future__ import annotations
 
 import re
 import sys
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any, TypedDict
 
@@ -85,47 +89,60 @@ def check_citations(answer: str, hits: list[dict[str, Any]]) -> tuple[bool, str]
     return True, ""
 
 
+def retrieve_hits(
+    client: QdrantClient, embedder: Embedder, question: str, top_k: int = TOP_K
+) -> list[dict[str, Any]]:
+    if not client.collection_exists(COLLECTION):
+        raise RuntimeError(
+            "the vector index has not been built; run "
+            "`python -m pglens.retrieval.indexer` first"
+        )
+    return search(client, embedder, question, limit=top_k, mode="hybrid")
+
+
+def finalise(question: str, hits: list[dict[str, Any]], text: str) -> Answer:
+    """Turn the model's raw text into the answer the user sees, or a refusal."""
+    if not hits:
+        return Answer(
+            question, REFUSAL, (), True, "no matching documentation was found", ()
+        )
+    text = text.strip()
+    ok, reason = check_citations(text, hits)
+    if not ok:
+        return Answer(question, REFUSAL, (), True, reason, tuple(hits))
+    cited = sorted({int(n) for n in CITATION.findall(text)})
+    sources = tuple(
+        {
+            "number": n,
+            "title": hits[n - 1]["title"],
+            "heading_path": hits[n - 1]["heading_path"],
+            "source_url": hits[n - 1]["source_url"],
+        }
+        for n in cited
+    )
+    return Answer(question, text, sources, False, "", tuple(hits))
+
+
 def build_graph(
     client: QdrantClient, embedder: Embedder, llm: LLM, top_k: int = TOP_K
 ) -> Any:
     def retrieve(state: PipelineState) -> PipelineState:
-        if not client.collection_exists(COLLECTION):
-            raise RuntimeError(
-                "the vector index has not been built; run "
-                "`python -m pglens.retrieval.indexer` first"
-            )
-        hits = search(client, embedder, state["question"], limit=top_k, mode="hybrid")
-        return {"hits": hits}
+        return {"hits": retrieve_hits(client, embedder, state["question"], top_k)}
 
     def generate(state: PipelineState) -> PipelineState:
-        hits = state["hits"]
-        if not hits:
-            return {
-                "refused": True,
-                "reason": "no matching documentation was found",
-                "answer": REFUSAL,
-            }
-        answer = llm.complete(build_prompt(state["question"], hits))
-        return {"answer": answer}
+        if not state["hits"]:
+            return {"answer": ""}
+        prompt = build_prompt(state["question"], state["hits"])
+        return {"answer": llm.complete(prompt)}
 
     def cite_check(state: PipelineState) -> PipelineState:
-        if state.get("refused"):
-            return {"sources": []}
-        hits = state["hits"]
-        ok, reason = check_citations(state["answer"], hits)
-        if not ok:
-            return {"refused": True, "reason": reason, "answer": REFUSAL, "sources": []}
-        cited = sorted({int(n) for n in CITATION.findall(state["answer"])})
-        sources = [
-            {
-                "number": n,
-                "title": hits[n - 1]["title"],
-                "heading_path": hits[n - 1]["heading_path"],
-                "source_url": hits[n - 1]["source_url"],
-            }
-            for n in cited
-        ]
-        return {"refused": False, "reason": "", "sources": sources}
+        result = finalise(state["question"], state["hits"], state.get("answer", ""))
+        return {
+            "answer": result.answer,
+            "sources": [dict(s) for s in result.sources],
+            "refused": result.refused,
+            "reason": result.reason,
+        }
 
     graph = StateGraph(PipelineState)
     graph.add_node("retrieve", retrieve)
@@ -155,6 +172,35 @@ def ask(
         reason=state.get("reason", ""),
         hits=tuple(state.get("hits", [])),
     )
+
+
+def stream_answer(
+    question: str,
+    client: QdrantClient,
+    embedder: Embedder,
+    llm: LLM,
+    top_k: int = TOP_K,
+) -> Iterator[dict[str, Any]]:
+    """Yield events as the answer is produced.
+
+    retrieved -> token (many) -> final
+
+    "token" text is a draft. The "final" event carries the verified answer,
+    which may differ from the draft if its citations fail.
+    """
+    hits = retrieve_hits(client, embedder, question, top_k)
+    yield {"type": "retrieved", "count": len(hits)}
+
+    if not hits:
+        yield {"type": "final", "answer": finalise(question, hits, "")}
+        return
+
+    pieces: list[str] = []
+    for piece in llm.stream(build_prompt(question, hits)):
+        pieces.append(piece)
+        yield {"type": "token", "text": piece}
+
+    yield {"type": "final", "answer": finalise(question, hits, "".join(pieces))}
 
 
 def format_answer(result: Answer) -> str:

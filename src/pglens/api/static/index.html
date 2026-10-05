@@ -3,192 +3,563 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PGLens: PostgreSQL docs assistant</title>
+  <title>PGLens</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #fafaf8;
-      --panel: #ffffff;
-      --text: #1d1d1b;
-      --muted: #6b6b66;
-      --border: #e2e2dc;
-      --accent: #2f5d8a;
-      --refuse: #8a5a2f;
+      --bg: #fbfbfa;
+      --ink: #17181a;
+      --muted: #6b6f76;
+      --line: #e4e5e7;
+      --field: #ffffff;
+      --user: #eceff3;
+      --accent: #336791;
+      --accent-ink: #ffffff;
+      --accent-soft: #e6eef6;
+      --refuse: #8a5a1f;
+      --code: #f2f3f5;
+      --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
     }
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {
-        --bg: #161614;
-        --panel: #1f1f1c;
-        --text: #ecece6;
-        --muted: #9a9a92;
-        --border: #3a3a35;
-        --accent: #7aa6d6;
-        --refuse: #d6a46f;
+        --bg: #1b1c1f;
+        --ink: #e9eaec;
+        --muted: #9ca0a8;
+        --line: #2e3035;
+        --field: #24262a;
+        --user: #2a2d33;
+        --accent: #6f9ccc;
+        --accent-ink: #14161a;
+        --accent-soft: #232b36;
+        --refuse: #e3b06b;
+        --code: #26282d;
       }
     }
     :root[data-theme="dark"] {
-      --bg: #161614;
-      --panel: #1f1f1c;
-      --text: #ecece6;
-      --muted: #9a9a92;
-      --border: #3a3a35;
-      --accent: #7aa6d6;
-      --refuse: #d6a46f;
+      --bg: #1b1c1f;
+      --ink: #e9eaec;
+      --muted: #9ca0a8;
+      --line: #2e3035;
+      --field: #24262a;
+      --user: #2a2d33;
+      --accent: #6f9ccc;
+      --accent-ink: #14161a;
+      --accent-soft: #232b36;
+      --refuse: #e3b06b;
+      --code: #26282d;
     }
+
     * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
     body {
-      margin: 0;
       background: var(--bg);
-      color: var(--text);
-      font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--ink);
+      font: 400 15px/1.6 var(--sans);
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
     }
-    main {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 40px 16px 64px;
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+    header {
+      display: flex;
+      align-items: center;
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--line);
     }
-    h1 { font-size: 1.5rem; margin: 0 0 4px; }
-    .subtitle { color: var(--muted); margin: 0 0 24px; }
-    form { display: flex; gap: 8px; }
-    input[type="text"] {
-      flex: 1;
-      min-width: 0;
-      padding: 12px 14px;
+    .wordmark { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+
+    #thread { flex: 1; overflow-y: auto; padding: 28px 16px 12px; scroll-behavior: smooth; }
+    .column { max-width: 740px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+
+    /* Empty state */
+    .intro { margin: 14vh 0 0; }
+    .intro h1 {
+      font-size: 26px;
+      font-weight: 500;
+      letter-spacing: -0.015em;
+      margin: 0 0 8px;
+    }
+    .intro p { color: var(--muted); margin: 0 0 28px; max-width: 52ch; }
+    .suggestions { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .suggestions button {
+      width: 100%;
+      text-align: left;
       font: inherit;
-      color: var(--text);
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      color: var(--ink);
+      background: transparent;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 11px 14px;
+      cursor: pointer;
+      transition: border-color 150ms ease, background 150ms ease;
     }
-    input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-    button {
-      padding: 12px 18px;
-      font: inherit;
-      color: #fff;
+    .suggestions button:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+    /* Conversation */
+    .user { align-self: flex-end; max-width: 78%; }
+    .user .bubble {
+      background: var(--user);
+      border-radius: 18px;
+      padding: 10px 16px;
+      white-space: pre-wrap;
+    }
+    .assistant { max-width: 100%; }
+
+    .loading { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; min-height: 26px; }
+    .dots { display: inline-flex; gap: 4px; }
+    .dots i {
+      width: 6px; height: 6px; border-radius: 50%;
       background: var(--accent);
-      border: 0;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .dots i:nth-child(2) { animation-delay: 0.15s; }
+    .dots i:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+      30% { transform: translateY(-4px); opacity: 1; }
+    }
+
+    .answer { min-height: 1em; }
+    .answer p { margin: 0 0 12px; }
+    .answer p:last-child { margin-bottom: 0; }
+    .answer ul { margin: 0 0 12px; padding-left: 20px; }
+    .answer li { margin: 4px 0; }
+    .answer strong { font-weight: 600; }
+    .answer code {
+      font-family: var(--mono);
+      font-size: 0.9em;
+      background: var(--code);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .answer pre {
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.5;
+      background: var(--code);
+      border: 1px solid var(--line);
       border-radius: 8px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      margin: 0 0 12px;
+    }
+    .answer pre code { background: none; padding: 0; }
+
+    /* Citation markers in the text link to their source card */
+    .cite {
+      display: inline-block;
+      min-width: 1.35em;
+      padding: 0 4px;
+      margin: 0 1px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.5;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-radius: 4px;
+      text-decoration: none;
+      vertical-align: 1px;
+    }
+    .cite:hover { background: var(--accent); color: var(--accent-ink); }
+
+    /* Draft text while the model is still writing */
+    .answer.draft { color: var(--muted); }
+    .caret::after {
+      content: "";
+      display: inline-block;
+      width: 2px;
+      height: 1.05em;
+      margin-left: 2px;
+      vertical-align: -2px;
+      background: var(--accent);
+      animation: blink 1s steps(2, start) infinite;
+    }
+    @keyframes blink { to { visibility: hidden; } }
+
+    .answer.refused { color: var(--refuse); border-left: 2px solid var(--refuse); padding-left: 12px; }
+    .answer.settle { animation: settle 360ms ease-out; }
+    @keyframes settle { from { opacity: 0.55; } to { opacity: 1; } }
+
+    /* Sources */
+    .sources { margin-top: 18px; display: grid; gap: 8px; }
+    .sources-label { color: var(--muted); font-size: 13px; margin-bottom: 2px; }
+    .source {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 12px;
+      align-items: start;
+      text-decoration: none;
+      color: inherit;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 11px 14px;
+      background: var(--field);
+      transition: border-color 150ms ease;
+      animation: rise 380ms ease-out both;
+    }
+    .source:nth-child(2) { animation-delay: 60ms; }
+    .source:nth-child(3) { animation-delay: 120ms; }
+    .source:nth-child(4) { animation-delay: 180ms; }
+    .source:nth-child(5) { animation-delay: 240ms; }
+    .source:hover { border-color: var(--accent); }
+    .source .num {
+      width: 26px; height: 26px;
+      border-radius: 7px;
+      display: grid; place-items: center;
+      font-size: 12px; font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .source .page { font-weight: 600; font-size: 14px; }
+    .source .path { color: var(--muted); font-size: 13px; margin-top: 1px; }
+    .source .host { color: var(--muted); font-size: 12px; font-family: var(--mono); margin-top: 6px; overflow-wrap: anywhere; }
+    @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    .error { color: var(--refuse); }
+
+    /* Composer */
+    #composer-wrap { padding: 8px 16px 18px; }
+    #composer {
+      max-width: 740px;
+      margin: 0 auto;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: var(--field);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 7px 7px 7px 16px;
+      transition: border-color 150ms ease;
+    }
+    #composer:focus-within { border-color: var(--accent); }
+    textarea {
+      flex: 1;
+      resize: none;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      line-height: 1.5;
+      max-height: 180px;
+      padding: 7px 0;
+    }
+    textarea::placeholder { color: var(--muted); }
+    #send {
+      flex: none;
+      width: 34px; height: 34px;
+      border: 0;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--accent-ink);
+      display: grid; place-items: center;
       cursor: pointer;
     }
-    button:disabled { opacity: 0.6; cursor: default; }
-    #result { margin-top: 24px; }
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 20px;
-    }
-    .answer { white-space: pre-wrap; }
-    .answer.refused { color: var(--refuse); }
-    .sources { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
-    .sources h2 { font-size: 0.95rem; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
-    .sources ol { margin: 0; padding-left: 20px; }
-    .sources li { margin-bottom: 6px; }
-    .sources a { color: var(--accent); }
-    .status { color: var(--muted); }
-    .error { color: var(--refuse); }
-    .note {
-      margin-top: 32px;
-      color: var(--muted);
-      font-size: 0.875rem;
+    #send:disabled { opacity: 0.3; cursor: default; }
+    #send svg { width: 16px; height: 16px; }
+    .hint { max-width: 740px; margin: 8px auto 0; color: var(--muted); font-size: 12px; text-align: center; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      #thread { scroll-behavior: auto; }
     }
   </style>
 </head>
 <body>
-  <main>
-    <h1>PostgreSQL docs assistant</h1>
-    <p class="subtitle">Answers come from the official PostgreSQL 17 documentation, with citations.</p>
+  <header>
+    <div class="wordmark">PGLens</div>
+  </header>
 
-    <form id="ask-form">
-      <input type="text" id="question" name="question" maxlength="500" required
-             placeholder="e.g. How do I find which sessions are waiting on a lock?"
-             aria-label="Your question">
-      <button type="submit" id="submit">Ask</button>
+  <div id="thread">
+    <div class="column" id="messages">
+      <section class="intro" id="intro">
+        <h1>Ask a PostgreSQL question</h1>
+        <p>Answers come from the official PostgreSQL documentation. Each one links to the sections it used.</p>
+        <ul class="suggestions">
+          <li><button type="button">How do I find which sessions are waiting on a lock?</button></li>
+          <li><button type="button">When does autovacuum run?</button></li>
+          <li><button type="button">What is a partial index and when should I use one?</button></li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <div id="composer-wrap">
+    <form id="composer">
+      <textarea id="question" rows="1" maxlength="500" placeholder="Ask about PostgreSQL" aria-label="Your question"></textarea>
+      <button type="submit" id="send" aria-label="Send question" disabled>
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13V3M8 3l-4.5 4.5M8 3l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </form>
-
-    <div id="result" aria-live="polite"></div>
-
-    <p class="note">
-      Each answer is checked against its cited sources before it is shown.
-      If the documentation does not cover a question, the assistant says so.
-    </p>
-  </main>
+    <div class="hint">Every sentence is checked against its cited section before it is final.</div>
+  </div>
 
   <script>
-    const form = document.getElementById("ask-form");
+    const thread = document.getElementById("thread");
+    const messages = document.getElementById("messages");
+    const intro = document.getElementById("intro");
+    const form = document.getElementById("composer");
     const input = document.getElementById("question");
-    const button = document.getElementById("submit");
-    const result = document.getElementById("result");
+    const send = document.getElementById("send");
 
-    function setStatus(text, className) {
-      result.replaceChildren();
-      const p = document.createElement("p");
-      p.className = className || "status";
-      p.textContent = text;
-      result.appendChild(p);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    function scrollToEnd() {
+      thread.scrollTop = thread.scrollHeight;
     }
 
-    function renderAnswer(data) {
-      result.replaceChildren();
-      const card = document.createElement("div");
-      card.className = "card";
-
-      const answer = document.createElement("div");
-      answer.className = data.refused ? "answer refused" : "answer";
-      answer.textContent = data.answer;
-      card.appendChild(answer);
-
-      if (data.sources.length > 0) {
-        const section = document.createElement("div");
-        section.className = "sources";
-        const heading = document.createElement("h2");
-        heading.textContent = "Sources";
-        section.appendChild(heading);
-
-        const list = document.createElement("ol");
-        data.sources.forEach((source) => {
-          const item = document.createElement("li");
-          const link = document.createElement("a");
-          link.href = source.source_url;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-          link.textContent = source.heading_path.join(" > ") || source.title;
-          item.appendChild(link);
-          list.appendChild(item);
-        });
-        section.appendChild(list);
-        card.appendChild(section);
-      }
-
-      result.appendChild(card);
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
     }
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const question = input.value.trim();
-      if (question.length < 3) {
-        setStatus("Please type a question of at least three characters.", "error");
-        return;
-      }
+    function inline(text) {
+      return escapeHtml(text)
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/\[(\d+)\]/g, '<a class="cite" href="#src-$1" data-cite="$1">$1</a>');
+    }
 
-      button.disabled = true;
-      setStatus("Searching the documentation...");
-      try {
-        const response = await fetch("/ask", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question }),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          setStatus(data.detail || "Something went wrong. Please try again.", "error");
+    // Small, safe renderer for the subset the model uses: paragraphs, bullets,
+    // bold, inline code, fenced code, and [n] citations. Escapes everything first.
+    function render(markdown) {
+      let source = markdown;
+      // An unclosed fence is still being streamed: close it so it renders as code
+      const fences = (source.match(/```/g) || []).length;
+      if (fences % 2 === 1) source += "\n```";
+
+      const parts = source.split(/```[^\n]*\n?([\s\S]*?)```/);
+      let html = "";
+      parts.forEach((part, index) => {
+        if (index % 2 === 1) {
+          html += `<pre><code>${escapeHtml(part.replace(/\n$/, ""))}</code></pre>`;
           return;
         }
-        renderAnswer(data);
-      } catch (error) {
-        setStatus("Could not reach the server. Is it running?", "error");
-      } finally {
-        button.disabled = false;
+        part.split(/\n\s*\n/).forEach((paragraph) => {
+          const lines = paragraph.split("\n").filter((line) => line.trim());
+          if (lines.length === 0) return;
+          if (lines.every((line) => /^\s*[*-]\s+/.test(line))) {
+            const items = lines.map((line) => `<li>${inline(line.replace(/^\s*[*-]\s+/, ""))}</li>`);
+            html += `<ul>${items.join("")}</ul>`;
+          } else {
+            html += `<p>${lines.map(inline).join("<br>")}</p>`;
+          }
+        });
+      });
+      return html;
+    }
+
+    function addTurn(question) {
+      if (intro) intro.remove();
+      const user = document.createElement("div");
+      user.className = "user";
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = question;
+      user.appendChild(bubble);
+      messages.appendChild(user);
+
+      const turn = document.createElement("div");
+      turn.className = "assistant";
+      turn.innerHTML = `
+        <div class="loading" role="status">
+          <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="label">Searching the documentation</span>
+        </div>
+        <div class="answer draft"></div>
+        <div class="sources"></div>`;
+      messages.appendChild(turn);
+      scrollToEnd();
+      return turn;
+    }
+
+    function setLabel(turn, text) {
+      const label = turn.querySelector(".label");
+      if (label) label.textContent = text;
+    }
+
+    function clearLoading(turn) {
+      const loading = turn.querySelector(".loading");
+      if (loading) loading.remove();
+    }
+
+    function showDraft(turn, text) {
+      const answer = turn.querySelector(".answer");
+      answer.innerHTML = render(text);
+      answer.classList.add("caret");
+      scrollToEnd();
+    }
+
+    function showSources(turn, sources) {
+      const box = turn.querySelector(".sources");
+      if (!sources.length) return;
+      const label = document.createElement("div");
+      label.className = "sources-label";
+      label.textContent = sources.length === 1 ? "1 section used" : `${sources.length} sections used`;
+      box.appendChild(label);
+
+      sources.forEach((source) => {
+        const link = document.createElement("a");
+        link.className = "source";
+        link.id = `src-${source.number}`;
+        link.href = source.source_url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+
+        const num = document.createElement("span");
+        num.className = "num";
+        num.textContent = source.number;
+
+        const text = document.createElement("span");
+        const page = document.createElement("div");
+        page.className = "page";
+        page.textContent = source.title;
+        const path = document.createElement("div");
+        path.className = "path";
+        path.textContent = source.heading_path.join(" › ");
+        const host = document.createElement("div");
+        host.className = "host";
+        host.textContent = source.source_url.replace(/^https?:\/\//, "");
+        text.append(page, path, host);
+
+        link.append(num, text);
+        box.appendChild(link);
+      });
+    }
+
+    function showFinal(turn, data) {
+      clearLoading(turn);
+      const answer = turn.querySelector(".answer");
+      answer.classList.remove("draft", "caret");
+      answer.innerHTML = render(data.answer);
+      if (data.refused) {
+        answer.classList.add("refused");
+        if (data.reason) {
+          const note = document.createElement("p");
+          note.className = "sources-label";
+          note.textContent = data.reason.charAt(0).toUpperCase() + data.reason.slice(1) + ".";
+          answer.appendChild(note);
+        }
+      } else if (!reduceMotion.matches) {
+        answer.classList.add("settle");
       }
+      showSources(turn, data.sources);
+      scrollToEnd();
+    }
+
+    function showError(turn, message) {
+      clearLoading(turn);
+      const answer = turn.querySelector(".answer");
+      answer.classList.remove("draft", "caret");
+      answer.classList.add("error");
+      answer.textContent = message;
+    }
+
+    // Reads the server-sent event stream from a POST request
+    async function streamAnswer(question, onEvent) {
+      const response = await fetch("/ask/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      if (!response.ok) {
+        const problem = await response.json().catch(() => ({}));
+        throw new Error(problem.detail || "Something went wrong. Please try again.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let end;
+        while ((end = buffer.indexOf("\n\n")) !== -1) {
+          const block = buffer.slice(0, end);
+          buffer = buffer.slice(end + 2);
+          let name = "message";
+          let data = "";
+          block.split("\n").forEach((line) => {
+            if (line.startsWith("event: ")) name = line.slice(7);
+            if (line.startsWith("data: ")) data += line.slice(6);
+          });
+          if (data) onEvent(name, JSON.parse(data));
+        }
+      }
+    }
+
+    async function ask(question) {
+      const turn = addTurn(question);
+      let draft = "";
+      send.disabled = true;
+      try {
+        await streamAnswer(question, (name, data) => {
+          if (name === "retrieved") {
+            setLabel(turn, data.count ? `Reading ${data.count} sections` : "No matching sections found");
+          } else if (name === "token") {
+            draft += data.text;
+            setLabel(turn, "Writing");
+            showDraft(turn, draft);
+          } else if (name === "final") {
+            showFinal(turn, data);
+          }
+        });
+      } catch (error) {
+        showError(turn, error.message || "Could not reach the server. Is it running?");
+      } finally {
+        send.disabled = input.value.trim().length < 3;
+        input.focus();
+        scrollToEnd();
+      }
+    }
+
+    function submitQuestion(question) {
+      const text = question.trim();
+      if (text.length < 3) return;
+      input.value = "";
+      input.style.height = "auto";
+      send.disabled = true;
+      ask(text);
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitQuestion(input.value);
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    input.addEventListener("input", () => {
+      input.style.height = "auto";
+      input.style.height = Math.min(input.scrollHeight, 180) + "px";
+      send.disabled = input.value.trim().length < 3;
+    });
+
+    document.querySelectorAll(".suggestions button").forEach((button) => {
+      button.addEventListener("click", () => submitQuestion(button.textContent));
+    });
+
+    // Clicking a citation marker scrolls to its source card
+    messages.addEventListener("click", (event) => {
+      const cite = event.target.closest(".cite");
+      if (!cite) return;
+      event.preventDefault();
+      const target = document.getElementById(`src-${cite.dataset.cite}`);
+      if (target) target.scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "center" });
     });
   </script>
 </body>

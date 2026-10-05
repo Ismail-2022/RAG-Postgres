@@ -6,23 +6,28 @@ Endpoints:
 
 - GET  /        the question page
 - POST /ask     {"question": "..."} -> answer, refusal flag, and cited sources
+- POST /ask/stream  same request, streamed as server-sent events:
+                    "retrieved", "token" (draft text), then "final" (verified answer)
 - GET  /health  liveness check
 """
 
 from __future__ import annotations
 
+import json
 import threading
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 
-from pglens.graph.pipeline import Answer, ask
+from pglens.graph.pipeline import Answer, ask, stream_answer
 from pglens.llm import LLM
-from pglens.retrieval.indexer import Embedder
+from pglens.retrieval.indexer import COLLECTION, Embedder
 
 STATIC_DIR = Path(__file__).parent / "static"
 MAX_QUESTION_CHARS = 500
@@ -57,6 +62,10 @@ def to_response(result: Answer) -> AskResponse:
     )
 
 
+def sse(event: str, data: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
 def create_app(client: QdrantClient, embedder: Embedder, llm: LLM) -> FastAPI:
     app = FastAPI(title="PGLens", version="0.1.0")
     # The embedded Qdrant client is not safe to share between threads
@@ -74,6 +83,30 @@ def create_app(client: QdrantClient, embedder: Embedder, llm: LLM) -> FastAPI:
         except RuntimeError as error:  # raised when the index has not been built
             raise HTTPException(status_code=503, detail=str(error)) from error
         return to_response(result)
+
+    @app.post("/ask/stream")
+    def ask_stream(body: AskRequest) -> StreamingResponse:
+        if not client.collection_exists(COLLECTION):
+            raise HTTPException(
+                status_code=503,
+                detail="the vector index has not been built; run "
+                "`python -m pglens.retrieval.indexer` first",
+            )
+
+        def events() -> Iterator[str]:
+            with lock:
+                for event in stream_answer(body.question, client, embedder, llm):
+                    if event["type"] == "final":
+                        final = to_response(event["answer"]).model_dump()
+                        yield sse("final", final)
+                    else:
+                        yield sse(event["type"], event)
+
+        return StreamingResponse(
+            events(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 

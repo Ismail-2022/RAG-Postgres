@@ -29,6 +29,9 @@ class ScriptedLLM:
         self.prompts.append(prompt)
         return self.replies.pop(0)
 
+    def stream(self, prompt: str):
+        yield self.complete(prompt)
+
 
 def _chunk(chunk_id: str, text: str, slug: str) -> Chunk:
     return Chunk(
