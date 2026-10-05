@@ -23,7 +23,7 @@ from typing import Any
 from qdrant_client import QdrantClient
 
 from pglens.config import GOLDEN_SET_FILE, INDEX_DIR
-from pglens.retrieval.indexer import Embedder, search
+from pglens.retrieval.indexer import MODES, Embedder, Mode, search
 
 SEARCH_DEPTH = 10  # how many results to retrieve per question
 RECALL_K = 5  # the k used for the headline recall score
@@ -101,10 +101,13 @@ def evaluate(
     embedder: Embedder,
     questions: list[GoldenQuestion],
     k: int = RECALL_K,
+    mode: Mode = "hybrid",
 ) -> EvalReport:
     results = []
     for question in questions:
-        hits = search(client, embedder, question.question, limit=SEARCH_DEPTH)
+        hits = search(
+            client, embedder, question.question, limit=SEARCH_DEPTH, mode=mode
+        )
         results.append(QuestionResult(question, first_relevant_rank(hits, question)))
 
     ranks = [r.rank for r in results]
@@ -132,9 +135,12 @@ def main(argv: list[str] | None = None) -> None:
 
     args = sys.argv[1:] if argv is None else argv
     path = Path(args[0]) if args else GOLDEN_SET_FILE
+    mode = args[1] if len(args) > 1 else "hybrid"
+    if mode not in MODES:
+        raise SystemExit(f"mode must be one of {', '.join(MODES)}")
     questions = load_golden_set(path)
-    print(f"golden set: {path.name} ({len(questions)} questions)")
-    report = evaluate(open_index(INDEX_DIR), FastEmbedder(), questions)
+    print(f"golden set: {path.name} ({len(questions)} questions), mode: {mode}")
+    report = evaluate(open_index(INDEX_DIR), FastEmbedder(), questions, mode=mode)
     print(format_report(report))
 
 

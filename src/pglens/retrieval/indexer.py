@@ -1,5 +1,9 @@
 """Index chunks into Qdrant and search them.
 
+Each chunk is stored twice: a dense vector for meaning, and a sparse BM25
+vector for exact keywords. Search can use either alone ("dense") or both,
+with the two result lists merged by reciprocal rank fusion ("hybrid").
+
 Uses the local (embedded) Qdrant client, which stores data in a folder and
 needs no server. The same code works against a Qdrant server later by
 changing the client constructor.
@@ -14,7 +18,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from qdrant_client import QdrantClient, models
 
@@ -23,9 +27,17 @@ from pglens.config import INDEX_DIR, PROCESSED_DIR
 
 COLLECTION = "pglens_docs"
 EMBED_MODEL = "BAAI/bge-small-en-v1.5"  # 384 dimensions, small enough for a laptop CPU
+SPARSE_MODEL = "Qdrant/bm25"  # keyword weights, no training needed
+DENSE = "dense"
+SPARSE = "sparse"
+MODES = ("dense", "hybrid")
+Mode = Literal["dense", "hybrid"]
+CANDIDATES = 20  # results taken from each side before fusing in hybrid mode
 
 # Fixed namespace so the same chunk always maps to the same Qdrant point id
 _POINT_NAMESPACE = uuid.UUID("6f1c7a0e-2b1d-4c51-9a77-3d0f2e8b5a10")
+
+SparseVector = tuple[list[int], list[float]]
 
 
 class Embedder(Protocol):
@@ -33,21 +45,36 @@ class Embedder(Protocol):
 
     def embed_query(self, text: str) -> list[float]: ...
 
+    def embed_sparse_documents(self, texts: list[str]) -> list[SparseVector]: ...
+
+    def embed_sparse_query(self, text: str) -> SparseVector: ...
+
 
 class FastEmbedder:
-    """Embeddings from fastembed, which runs ONNX models without PyTorch."""
+    """Dense and sparse embeddings from fastembed, which runs ONNX models without PyTorch."""
 
     def __init__(self, model_name: str = EMBED_MODEL) -> None:
-        # Imported here so the tests never load the model
-        from fastembed import TextEmbedding
+        # Imported here so the tests never load the models
+        from fastembed import SparseTextEmbedding, TextEmbedding
 
-        self._model = TextEmbedding(model_name=model_name)
+        self._dense = TextEmbedding(model_name=model_name)
+        self._sparse = SparseTextEmbedding(model_name=SPARSE_MODEL)
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [vector.tolist() for vector in self._model.embed(texts)]
+        return [vector.tolist() for vector in self._dense.embed(texts)]
 
     def embed_query(self, text: str) -> list[float]:
-        return next(iter(self._model.query_embed(text))).tolist()
+        return next(iter(self._dense.query_embed(text))).tolist()
+
+    def embed_sparse_documents(self, texts: list[str]) -> list[SparseVector]:
+        return [_sparse_pair(v) for v in self._sparse.embed(texts)]
+
+    def embed_sparse_query(self, text: str) -> SparseVector:
+        return _sparse_pair(next(iter(self._sparse.query_embed(text))))
+
+
+def _sparse_pair(vector: Any) -> SparseVector:
+    return vector.indices.tolist(), vector.values.tolist()
 
 
 def open_index(path: Path = INDEX_DIR) -> QdrantClient:
@@ -69,25 +96,33 @@ def index_chunks(
     if not chunks:
         raise ValueError("no chunks to index")
 
-    vectors = embedder.embed_documents([c.text for c in chunks])
-    dimensions = len(vectors[0])
+    texts = [c.text for c in chunks]
+    dense = embedder.embed_documents(texts)
+    sparse = embedder.embed_sparse_documents(texts)
+    dimensions = len(dense[0])
 
     if client.collection_exists(collection):
         client.delete_collection(collection)
     client.create_collection(
         collection_name=collection,
-        vectors_config=models.VectorParams(
-            size=dimensions, distance=models.Distance.COSINE
-        ),
+        vectors_config={
+            DENSE: models.VectorParams(size=dimensions, distance=models.Distance.COSINE)
+        },
+        sparse_vectors_config={
+            SPARSE: models.SparseVectorParams(modifier=models.Modifier.IDF)
+        },
     )
 
     points = [
         models.PointStruct(
             id=str(uuid.uuid5(_POINT_NAMESPACE, chunk.chunk_id)),
-            vector=vector,
+            vector={
+                DENSE: dense_vector,
+                SPARSE: models.SparseVector(indices=indices, values=values),
+            },
             payload=_payload(chunk),
         )
-        for chunk, vector in zip(chunks, vectors)
+        for chunk, dense_vector, (indices, values) in zip(chunks, dense, sparse)
     ]
     client.upsert(collection_name=collection, points=points)
     return len(points)
@@ -98,18 +133,43 @@ def search(
     embedder: Embedder,
     query: str,
     limit: int = 5,
+    mode: Mode = "hybrid",
     collection: str = COLLECTION,
 ) -> list[dict[str, Any]]:
-    """Return the most similar chunks to the query, best first.
+    """Return the chunks that best match the query, best first.
 
-    Each result has the chunk's payload fields plus a "score" (cosine similarity).
+    Each result has the chunk's payload fields plus a "score". In dense mode
+    the score is cosine similarity; in hybrid mode it is the fused rank score.
     """
-    response = client.query_points(
-        collection_name=collection,
-        query=embedder.embed_query(query),
-        limit=limit,
-        with_payload=True,
-    )
+    if mode == "dense":
+        response = client.query_points(
+            collection_name=collection,
+            query=embedder.embed_query(query),
+            using=DENSE,
+            limit=limit,
+            with_payload=True,
+        )
+    elif mode == "hybrid":
+        indices, values = embedder.embed_sparse_query(query)
+        response = client.query_points(
+            collection_name=collection,
+            prefetch=[
+                models.Prefetch(
+                    query=embedder.embed_query(query), using=DENSE, limit=CANDIDATES
+                ),
+                models.Prefetch(
+                    query=models.SparseVector(indices=indices, values=values),
+                    using=SPARSE,
+                    limit=CANDIDATES,
+                ),
+            ],
+            query=models.FusionQuery(fusion=models.Fusion.RRF),
+            limit=limit,
+            with_payload=True,
+        )
+    else:
+        raise ValueError(f"unknown search mode: {mode!r}")
+
     return [
         {**(point.payload or {}), "score": point.score} for point in response.points
     ]

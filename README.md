@@ -100,8 +100,11 @@ location of your shell does not matter.
 # 2. Build the vector index from data/processed
 .venv/bin/python -m pglens.retrieval.indexer
 
-# 3. Score retrieval against the golden set (data/eval/golden_set.jsonl)
-.venv/bin/python -m pglens.eval.retrieval_eval
+# 3. Ask a question (retrieve -> generate -> check citations, via local Ollama)
+.venv/bin/python -m pglens.graph.pipeline "how do I find blocked queries?"
+
+# 4. Score retrieval against a golden set (default: data/eval/golden_set.jsonl)
+.venv/bin/python -m pglens.eval.retrieval_eval [golden_set_file] [dense|hybrid]
 ```
 
 Step 1 contacts postgresql.org, so run it only when the corpus needs
@@ -137,7 +140,10 @@ live in the DVC cache and the configured remote.
 - [x] Retrieval evaluation baseline: 23 questions, recall@5 1.000, MRR 0.928
   (questions were written from the section headings, so this is an optimistic
   upper bound; harder paraphrased questions are next)
-- [ ] LangGraph pipeline with citations, `/ask` endpoint
+- [x] LangGraph pipeline with citation checks (local Ollama, `qwen3.5`)
+- [ ] Reranking between retrieve and generate
+- [ ] Answer-quality evaluation (faithfulness: does each cited source support its claim)
+- [ ] `/ask` endpoint
 - [ ] Evaluation harness and golden set
 - [ ] Embedder fine-tuning with MLflow tracking
 - [ ] CI/CD workflows and Hugging Face deployment

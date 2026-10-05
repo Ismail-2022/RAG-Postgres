@@ -7,11 +7,11 @@ fixed vector slot, which is enough to check that search ranks by content.
 
 from __future__ import annotations
 
-import zlib
 from pathlib import Path
 
 import pytest
 from qdrant_client import QdrantClient
+from support import FakeEmbedder
 
 from pglens.chunking import Chunk, chunk_document
 from pglens.ingest.fetch import extract_main, to_markdown
@@ -19,23 +19,6 @@ from pglens.retrieval.indexer import index_chunks, search
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE_FILES = sorted(FIXTURES.glob("*.html"))
-DIMENSIONS = 64
-
-
-class FakeEmbedder:
-    """Deterministic bag-of-words embedding: each word adds 1 to one slot."""
-
-    def _embed(self, text: str) -> list[float]:
-        vector = [0.0] * DIMENSIONS
-        for word in text.lower().split():
-            vector[zlib.crc32(word.encode()) % DIMENSIONS] += 1.0
-        return vector
-
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [self._embed(t) for t in texts]
-
-    def embed_query(self, text: str) -> list[float]:
-        return self._embed(text)
 
 
 def _chunk(chunk_id: str, text: str, slug: str = "page") -> Chunk:
@@ -139,3 +122,25 @@ def test_saved_page_indexes_every_chunk(fixture: Path, client: QdrantClient) -> 
     results = search(client, FakeEmbedder(), chunks[0].text, limit=len(chunks))
     assert {r["chunk_id"] for r in results} == {c.chunk_id for c in chunks}
     assert all(r["source_url"] == url for r in results)
+
+
+@pytest.mark.parametrize("mode", ["dense", "hybrid"])
+def test_both_search_modes_return_matching_chunks(
+    client: QdrantClient, mode: str
+) -> None:
+    chunks = [
+        _chunk("p#0", "vacuum reclaims dead rows", slug="maintenance"),
+        _chunk("p#1", "btree lookups use an index", slug="indexes"),
+    ]
+    index_chunks(client, chunks, FakeEmbedder())
+
+    results = search(client, FakeEmbedder(), "vacuum dead rows", mode=mode)
+
+    assert results[0]["chunk_id"] == "p#0"
+
+
+def test_unknown_search_mode_is_rejected(client: QdrantClient) -> None:
+    index_chunks(client, [_chunk("p#0", "some text")], FakeEmbedder())
+
+    with pytest.raises(ValueError):
+        search(client, FakeEmbedder(), "text", mode="fuzzy")  # type: ignore[arg-type]

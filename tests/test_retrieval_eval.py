@@ -9,13 +9,13 @@ quietly scoring zero.
 from __future__ import annotations
 
 import json
-import zlib
 from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
 from qdrant_client import QdrantClient
+from support import FakeEmbedder
 
 from pglens.chunking import Chunk, chunk_processed_dir
 from pglens.config import EVAL_DIR, PROCESSED_DIR, SOURCES_FILE
@@ -30,24 +30,6 @@ from pglens.eval.retrieval_eval import (
     recall_at_k,
 )
 from pglens.retrieval.indexer import index_chunks
-
-DIMENSIONS = 64
-
-
-class FakeEmbedder:
-    """Deterministic bag-of-words embedding, as in the indexer tests."""
-
-    def _embed(self, text: str) -> list[float]:
-        vector = [0.0] * DIMENSIONS
-        for word in text.lower().split():
-            vector[zlib.crc32(word.encode()) % DIMENSIONS] += 1.0
-        return vector
-
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [self._embed(t) for t in texts]
-
-    def embed_query(self, text: str) -> list[float]:
-        return self._embed(text)
 
 
 def _hit(slug: str, path: tuple[str, ...] = ()) -> dict[str, Any]:
