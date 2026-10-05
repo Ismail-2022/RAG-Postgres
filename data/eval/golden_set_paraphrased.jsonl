@@ -1,0 +1,22 @@
+{"id": "p01", "question": "My app is hanging and I suspect another connection is blocking it. How can I see who is blocking whom?", "relevant": [{"slug": "monitoring-locks", "heading": "Viewing Locks"}]}
+{"id": "p02", "question": "Does Postgres clean up dead rows on its own, or do I need a cron job?", "relevant": [{"slug": "routine-vacuuming", "heading": "The Autovacuum Daemon"}]}
+{"id": "p03", "question": "What happens if a database runs out of transaction numbers?", "relevant": [{"slug": "routine-vacuuming", "heading": "Wraparound"}]}
+{"id": "p04", "question": "Which cleanup command rewrites the whole table and locks it while it runs?", "relevant": [{"slug": "sql-vacuum", "heading": "Description"}]}
+{"id": "p05", "question": "How do I get real timings instead of estimates from a query plan?", "relevant": [{"slug": "using-explain", "heading": "EXPLAIN ANALYZE"}]}
+{"id": "p06", "question": "Which index type suits full text search or array containment queries?", "relevant": [{"slug": "indexes-types", "heading": "GIN"}]}
+{"id": "p07", "question": "Can I index only the rows that match a condition?", "relevant": [{"slug": "indexes-partial", "heading": "Partial Indexes"}]}
+{"id": "p08", "question": "Can a query be answered from the index alone, without reading the table?", "relevant": [{"slug": "indexes-index-only-scans", "heading": "Index-Only Scans"}]}
+{"id": "p09", "question": "If I index two columns together, does the order I list them in change anything?", "relevant": [{"slug": "indexes-multicolumn", "heading": "Multicolumn Indexes"}]}
+{"id": "p10", "question": "Which isolation level stops transactions from producing results that could not happen one after another?", "relevant": [{"slug": "transaction-iso", "heading": "Serializable"}, {"slug": "transaction-iso", "heading": "Repeatable Read"}]}
+{"id": "p11", "question": "Can I use the database to coordinate a custom mutex between my application processes?", "relevant": [{"slug": "explicit-locking", "heading": "Advisory Locks"}]}
+{"id": "p12", "question": "Two transactions are each waiting for the other to finish. What happens?", "relevant": [{"slug": "explicit-locking", "heading": "Deadlocks"}]}
+{"id": "p13", "question": "I need to load millions of rows from a file as fast as possible. What should I use?", "relevant": [{"slug": "populate", "heading": "COPY"}]}
+{"id": "p14", "question": "The planner misestimates row counts when two columns are related. What can I do about it?", "relevant": [{"slug": "planner-stats", "heading": "Extended Statistics"}]}
+{"id": "p15", "question": "How much RAM should the database be allowed to use for caching data?", "relevant": [{"slug": "runtime-config-resource", "heading": "Memory"}]}
+{"id": "p16", "question": "Maintenance jobs are hurting production latency during business hours. How do I throttle them?", "relevant": [{"slug": "runtime-config-resource", "heading": "Cost-based Vacuum Delay"}]}
+{"id": "p17", "question": "How can I stop the planner from choosing nested loop joins?", "relevant": [{"slug": "runtime-config-query", "heading": "Planner Method Configuration"}]}
+{"id": "p18", "question": "An index has grown bloated over time. How do I rebuild it?", "relevant": [{"slug": "routine-reindex", "heading": "Routine Reindexing"}]}
+{"id": "p19", "question": "Why do readers never block writers in Postgres?", "relevant": [{"slug": "mvcc-intro", "heading": "Introduction"}]}
+{"id": "p20", "question": "Which tables get scanned sequentially most often?", "relevant": [{"slug": "monitoring-stats", "heading": "pg_stat_all_tables"}]}
+{"id": "p21", "question": "How do I see how far behind my standby server is?", "relevant": [{"slug": "monitoring-stats", "heading": "pg_stat_replication"}]}
+{"id": "p22", "question": "Does writing a join with explicit JOIN syntax change how the planner orders the joins?", "relevant": [{"slug": "explicit-joins"}]}

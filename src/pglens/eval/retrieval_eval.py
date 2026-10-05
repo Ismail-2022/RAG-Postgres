@@ -15,6 +15,7 @@ Run from the project root:
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -126,10 +127,13 @@ def format_report(report: EvalReport) -> str:
     return "\n".join(lines)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     from pglens.retrieval import FastEmbedder, open_index
 
-    questions = load_golden_set()
+    args = sys.argv[1:] if argv is None else argv
+    path = Path(args[0]) if args else GOLDEN_SET_FILE
+    questions = load_golden_set(path)
+    print(f"golden set: {path.name} ({len(questions)} questions)")
     report = evaluate(open_index(INDEX_DIR), FastEmbedder(), questions)
     print(format_report(report))
 

@@ -18,7 +18,7 @@ import yaml
 from qdrant_client import QdrantClient
 
 from pglens.chunking import Chunk, chunk_processed_dir
-from pglens.config import GOLDEN_SET_FILE, PROCESSED_DIR, SOURCES_FILE
+from pglens.config import EVAL_DIR, PROCESSED_DIR, SOURCES_FILE
 from pglens.eval.retrieval_eval import (
     GoldenQuestion,
     Target,
@@ -184,13 +184,18 @@ def _configured_slugs() -> set[str]:
     return {page["slug"] for page in config["pages"]}
 
 
-def test_golden_set_ids_are_unique() -> None:
-    ids = [q.id for q in load_golden_set(GOLDEN_SET_FILE)]
+GOLDEN_SETS = sorted(EVAL_DIR.glob("golden_set*.jsonl"))
+
+
+@pytest.mark.parametrize("golden", GOLDEN_SETS, ids=lambda p: p.stem)
+def test_golden_set_ids_are_unique(golden: Path) -> None:
+    ids = [q.id for q in load_golden_set(golden)]
 
     assert len(ids) == len(set(ids))
 
 
-def test_golden_set_targets_exist_in_the_corpus() -> None:
+@pytest.mark.parametrize("golden", GOLDEN_SETS, ids=lambda p: p.stem)
+def test_golden_set_targets_exist_in_the_corpus(golden: Path) -> None:
     """Every slug is configured, and every heading appears on that page.
 
     A typo or a renamed heading fails here, rather than scoring as a miss.
@@ -206,7 +211,7 @@ def test_golden_set_targets_exist_in_the_corpus() -> None:
         )
 
     problems = []
-    for question in load_golden_set(GOLDEN_SET_FILE):
+    for question in load_golden_set(golden):
         for target in question.relevant:
             if target.slug not in configured:
                 problems.append(
