@@ -1,0 +1,50 @@
+answer set: answer_set.jsonl (16 questions), model: qwen3.5:latest
+id     expect   got      claims cited supported  question
+a01    answer   answered      4     2         2  How do I find which sessions are waiting on a lock?
+a02    answer   answered      4     3         3  When does autovacuum run?
+a03    answer   answered      9     5         4  What is transaction ID wraparound and how is it prevented?
+a04    answer   answered      3     2         2  What does shared_buffers control?
+a05    answer   answered      8     6         5  What is a partial index and when should I use one?
+a06    answer   answered      9     5         5  What is the difference between Read Committed and Repeatable Read?
+a07    answer   answered      5     3         3  How do I get real timings instead of estimates from a query plan?
+a08    answer   answered     10     8         6  What are advisory locks?
+a09    answer   answered      6     5         5  What is the fastest way to bulk load rows into a table?
+a10    answer   answered      6     6         5  How do I see how far behind my standby server is?
+o01    refuse   refused       0     0         0  What is the capital of France?
+o02    refuse   refused       0     0         0  How do I bake sourdough bread?
+o03    refuse   refused       0     0         0  How do I configure MySQL replication?
+o04    refuse   refused       0     0         0  How do I schedule pods in Kubernetes?
+o05    refuse   refused       0     0         0  Which Python web framework is the best?
+o06    refuse   refused       0     0         0  Write a poem about the sea.
+
+refusal accuracy:  1.000
+citation coverage: 0.703
+faithfulness:      0.889  (cited claims only)
+
+cited but unsupported:
+  a03: If warnings about old XIDs (reaching forty million from wraparound) are ignored, PostgreSQL will eventually refuse to generate new transaction IDs once fewer than three million remain until wraparound [2][4].
+  a05: **Enforcing uniqueness conditionally**: You can enforce unique constraints only for specific subsets of rows, like allowing multiple unsuccessful test results but ensuring at most one successful result per subject/target combination [4].
+  a08: A complete list of currently held advisory locks can be found in the [`pg_locks`](https://www.postgresql.org/docs/17/view-pg-locks.html) system view, where they appear under wait events like "advisory" or "userlock" depending on context [3][4].
+  a08: The functions for manipulating advisory locks are described in Section 9.28.10 of the documentation [2].
+  a10: The lag times are specifically defined as measurements of the time taken for recent WAL to be written, flushed and replayed by the sender [4].
+
+uncited claims:
+  a01: This view allows database administrators to see information about outstanding locks in the lock manager.
+  a01: Additionally, wait events related to locking are categorized under type `Lock` and include specific descriptions such as waiting for a transaction to finish (`transactionid`) or acquiring various types of locks like advisory, relation, page, tuple, etc.
+  a02: **Transaction ID Freeze:** Tables whose `relfrozenxid` value is more than `autovacuum_freeze_max_age` transactions old are always vacuumed.
+  a03: Transaction ID (XID) wraparound occurs because PostgreSQL's XIDs are 32-bit counters that eventually reach a limit of about four billion transactions, causing the counter to reset to zero.
+  a03: **Frozen XIDs:** PostgreSQL uses `VACUUM` to mark row versions as *frozen*.
+  a03: These are assigned a special `FrozenTransactionId` that is always considered older than any normal XID, ensuring they remain visible regardless of wraparound.
+  a03: **Automatic Safeguards:** The system includes a failsafe mechanism controlled by `vacuum_failsafe_age` that triggers automatically if regular maintenance is insufficient.
+  a04: It defaults to typically 128 megabytes, though this may vary based on kernel settings during initialization.
+  a05: Example: Index only non-local IP addresses in an access log table.
+  a05: However, avoid using partial indexes as a substitute for partitioning.
+  a06: **Snapshot Timing**: In `Read Committed` mode, each command starts with a new snapshot that includes all transactions committed up to that instant.
+  a06: In contrast, under `Repeatable Read`, a query sees a snapshot as of the start of the first non-transaction-control statement in the *entire* transaction, not just the current statement.
+  a06: **Phantom Reads**: The SQL standard defines "phantom read" as finding new rows satisfying a search condition due to another recently-committed transaction.
+  a06: **Guarantees**: `Read Committed` allows non-repeatable reads (where a transaction re-reads data and finds it modified) but prevents dirty reads.
+  a07: To get real timings instead of estimates from a query plan, you should use the `ANALYZE` option with the `EXPLAIN` command.
+  a07: When using this option, PostgreSQL actually executes the query and displays the true row counts and actual run time accumulated within each plan node, along with the same cost estimates shown by a plain `EXPLAIN`.
+  a08: They provide a means for creating locks with meanings defined by the application itself.
+  a08: They can be held for multiple requests without needing to release and re-acquire them immediately.
+  a09: The fastest way to bulk load rows into a table depends on whether you are loading data into a freshly created table or an existing one.

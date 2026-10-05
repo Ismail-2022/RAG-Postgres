@@ -55,6 +55,9 @@ class Answer:
     sources: tuple[dict[str, Any], ...]
     refused: bool
     reason: str
+    hits: tuple[
+        dict[str, Any], ...
+    ] = ()  # everything retrieved, so a judge can read the sources
 
 
 def build_prompt(question: str, hits: list[dict[str, Any]]) -> str:
@@ -148,6 +151,7 @@ def ask(
         sources=tuple(state.get("sources", [])),
         refused=bool(state.get("refused")),
         reason=state.get("reason", ""),
+        hits=tuple(state.get("hits", [])),
     )
 
 

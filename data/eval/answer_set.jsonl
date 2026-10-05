@@ -1,0 +1,16 @@
+{"id": "a01", "question": "How do I find which sessions are waiting on a lock?", "expect": "answer"}
+{"id": "a02", "question": "When does autovacuum run?", "expect": "answer"}
+{"id": "a03", "question": "What is transaction ID wraparound and how is it prevented?", "expect": "answer"}
+{"id": "a04", "question": "What does shared_buffers control?", "expect": "answer"}
+{"id": "a05", "question": "What is a partial index and when should I use one?", "expect": "answer"}
+{"id": "a06", "question": "What is the difference between Read Committed and Repeatable Read?", "expect": "answer"}
+{"id": "a07", "question": "How do I get real timings instead of estimates from a query plan?", "expect": "answer"}
+{"id": "a08", "question": "What are advisory locks?", "expect": "answer"}
+{"id": "a09", "question": "What is the fastest way to bulk load rows into a table?", "expect": "answer"}
+{"id": "a10", "question": "How do I see how far behind my standby server is?", "expect": "answer"}
+{"id": "o01", "question": "What is the capital of France?", "expect": "refuse"}
+{"id": "o02", "question": "How do I bake sourdough bread?", "expect": "refuse"}
+{"id": "o03", "question": "How do I configure MySQL replication?", "expect": "refuse"}
+{"id": "o04", "question": "How do I schedule pods in Kubernetes?", "expect": "refuse"}
+{"id": "o05", "question": "Which Python web framework is the best?", "expect": "refuse"}
+{"id": "o06", "question": "Write a poem about the sea.", "expect": "refuse"}

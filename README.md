@@ -103,7 +103,10 @@ location of your shell does not matter.
 # 3. Ask a question (retrieve -> generate -> check citations, via local Ollama)
 .venv/bin/python -m pglens.graph.pipeline "how do I find blocked queries?"
 
-# 4. Score retrieval against a golden set (default: data/eval/golden_set.jsonl)
+# 4. Score answer quality with the local judge (refusals and claim support)
+.venv/bin/python -m pglens.eval.answer_eval
+
+# 5. Score retrieval against a golden set (default: data/eval/golden_set.jsonl)
 .venv/bin/python -m pglens.eval.retrieval_eval [golden_set_file] [dense|hybrid]
 ```
 
@@ -142,7 +145,9 @@ live in the DVC cache and the configured remote.
   upper bound; harder paraphrased questions are next)
 - [x] LangGraph pipeline with citation checks (local Ollama, `qwen3.5`)
 - [ ] Reranking between retrieve and generate
-- [ ] Answer-quality evaluation (faithfulness: does each cited source support its claim)
+- [x] Answer-quality evaluation with a local judge: refusal accuracy 1.000, citation coverage 0.703, faithfulness on cited claims 0.889 (judge not yet validated by hand)
+- [ ] Require every claim to carry a citation (coverage is the weakest number)
+- [ ] Hand-check a sample of judge verdicts to calibrate the judge
 - [ ] `/ask` endpoint
 - [ ] Evaluation harness and golden set
 - [ ] Embedder fine-tuning with MLflow tracking
